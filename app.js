@@ -21,7 +21,7 @@ const LS = {
 const State = {
   secciones:    [],
   productos:    [],
-  darkMode:     false,  // false = dark (por defecto), true = light
+  darkMode:     false,  // false = CLARO (por defecto), true = OSCURO
   activeTab:    'compra',
   subSectionId: null,
   customIcons:  [],     // emojis añadidos por el usuario
@@ -54,6 +54,35 @@ const ICONOS_BASE_SECCION = ['🏪','🍎','🥩','🥓','🧀','🥫','🌶️'
 const ICONOS_BASE_PRODUCTO = ['🍎','🍋','🍌','🍇','🫐','🥑','🍅','🥕','🧅','🧄','🥦','🌽',
   '🥜','🥩','🥓','🍗','🧀','🥚','🥛','🍞','🧈','🍯','🥫','🐟','🦐','🫙','🌶️',
   '🍷','☕','🧃','💊','🧴','🧼','🪥','🧻','🫧','🛒','🌿','🫒','❄️'];
+
+// ── Helper de tema ─────────────────────────────────────────────
+// Clases que cambian según si está activo el modo oscuro
+function T(light, dark) {
+  return State.darkMode ? dark : light;
+}
+// Colores semánticos
+const C = {
+  // Tarjetas
+  card:       () => T('bg-white border-slate-200 shadow-sm',      'bg-slate-800 border-slate-700'),
+  cardHover:  () => T('hover:border-blue-300',                    'hover:border-blue-700'),
+  // Textos
+  textPrimary:() => T('text-slate-800',  'text-slate-100'),
+  textSecond: () => T('text-slate-500',  'text-slate-400'),
+  textMuted:  () => T('text-slate-400',  'text-slate-500'),
+  // Fondos UI
+  bg:         () => T('bg-slate-50',     'bg-slate-900'),
+  bgInput:    () => T('bg-white border-slate-300 text-slate-800 placeholder-slate-400',
+                       'bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-500'),
+  // Botones secundarios
+  btnSec:     () => T('bg-slate-100 text-slate-600 hover:bg-slate-200',
+                       'bg-slate-700 text-slate-300 hover:bg-slate-600'),
+  btnDanger:  () => T('bg-red-50 text-red-600 hover:bg-red-100',
+                       'bg-red-950 text-red-400 hover:bg-red-900/60'),
+  // Cabecera de grupo
+  grpHeader:  () => T('bg-slate-100 border-slate-200', 'bg-slate-800 border-slate-700'),
+  grpText:    () => T('text-slate-600', 'text-slate-200'),
+  grpCount:   () => T('bg-slate-200 text-slate-500', 'bg-slate-700 text-slate-400'),
+};
 
 // ══════════════════════════════════════════════════════════════
 // 4. UTILIDADES
@@ -102,7 +131,7 @@ function loadState() {
   if (!lsGet(LS.INITIALIZED)) {
     State.secciones  = buildDefaultSecciones();
     State.productos  = [];
-    State.darkMode   = false;   // dark por defecto
+    State.darkMode   = false;   // CLARO por defecto
     State.customIcons = [];
     State.gruposState = {};
     lsSet(LS.INITIALIZED, true);
@@ -119,16 +148,17 @@ function loadState() {
 // ══════════════════════════════════════════════════════════════
 // 6. TEMA (dark/light — invertido: false=dark, true=light)
 // ══════════════════════════════════════════════════════════════
-function applyTheme(isLight) {
-  document.documentElement.classList.toggle('light', isLight);
-  document.getElementById('meta-theme-color').content = isLight ? '#ffffff' : '#0f172a';
+function applyTheme(isDark) {
+  // isDark=false → modo claro (default), isDark=true → modo oscuro
+  document.documentElement.classList.toggle('dark', isDark);
+  document.getElementById('meta-theme-color').content = isDark ? '#0f172a' : '#f8fafc';
 }
 
 function toggleDarkMode() {
   State.darkMode = !State.darkMode;
   applyTheme(State.darkMode);
   lsSet(LS.DARK_MODE, State.darkMode);
-  showToast(State.darkMode ? '☀️ Modo claro' : '🌙 Modo oscuro');
+  showToast(State.darkMode ? '🌙 Modo oscuro activado' : '☀️ Modo claro activado');
   if (State.activeTab === 'gestion') renderGestion();
 }
 
@@ -246,7 +276,7 @@ function mountIconGrid(pickerId, type) {
 
 function buildUrgenciaPicker(selected = 'amarillo') {
   const opts = [
-    { v:'rojo',     label:'🔴 Urgente',   cls:'bg-red-700 text-white',    sel:'bg-red-600 text-white ring-2 ring-red-400 ring-offset-1 ring-offset-slate-900' },
+    { v:'rojo',     label:'🔴 Urgente',   cls:'bg-red-700 text-white',    sel:`bg-red-600 text-white ring-2 ring-red-400 ring-offset-1 ${State.darkMode?'ring-offset-slate-900':'ring-offset-white'}` },
     { v:'amarillo', label:'🟡 Normal',    cls:'bg-amber-800 text-amber-200', sel:'bg-amber-600 text-white ring-2 ring-amber-400 ring-offset-1 ring-offset-slate-900' },
     { v:'verde',    label:'🟢 Sin prisa', cls:'bg-emerald-900 text-emerald-300', sel:'bg-emerald-700 text-white ring-2 ring-emerald-400 ring-offset-1 ring-offset-slate-900' }
   ];
@@ -269,10 +299,20 @@ function pickUrg(btn) {
   document.getElementById('uhidden').value = btn.dataset.urg;
 }
 
-const INP  = `w-full px-3 py-2.5 rounded-xl text-sm border border-slate-700 bg-slate-800 text-slate-100
-              placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors
-              autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false"`;
-const LBL  = 'block text-xs font-bold uppercase tracking-wide text-slate-400 mb-1 mt-3 first:mt-0';
+// INP y LBL se generan como función para reflejar el tema activo
+function INP_CLS() {
+  return State.darkMode
+    ? 'w-full px-3 py-2.5 rounded-xl text-sm border border-slate-600 bg-slate-700 text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors'
+    : 'w-full px-3 py-2.5 rounded-xl text-sm border border-slate-300 bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors';
+}
+function LBL_CLS() {
+  return State.darkMode
+    ? 'block text-xs font-bold uppercase tracking-wide text-slate-400 mb-1 mt-3 first:mt-0'
+    : 'block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1 mt-3 first:mt-0';
+}
+// Alias para compatibilidad con los templates (se evalúan al llamar showSheet)
+const INP = 'w-full px-3 py-2.5 rounded-xl text-sm border focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors';
+const LBL = 'block text-xs font-bold uppercase tracking-wide mb-1 mt-3 first:mt-0';
 
 // ══════════════════════════════════════════════════════════════
 // 10. CRUD SECCIONES
@@ -621,13 +661,12 @@ function renderCompra() {
     <div class="mb-3">
       <!-- Cabecera grupo -->
       <button class="w-full flex items-center justify-between px-3 py-2 rounded-xl
-                     bg-slate-800 border border-slate-700 mb-1.5 transition-colors
-                     hover:bg-slate-750 active:opacity-80"
+                     border mb-1.5 transition-colors active:opacity-80 ${C.grpHeader()}"
               onclick="toggleGrupo('${g.key}')" style="user-select:none;">
         <div class="flex items-center gap-2">
           <span class="w-3 h-3 rounded-full flex-shrink-0" style="background:${g.color};"></span>
-          <span class="text-sm font-bold text-slate-200">${g.label}</span>
-          <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">${g.items.length}</span>
+          <span class="text-sm font-bold ${C.grpText()}">${g.label}</span>
+          <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${C.grpCount()}">${g.items.length}</span>
         </div>
         <svg class="flex-shrink-0 text-slate-500 transition-transform duration-300 ${collapsed ? '-rotate-90' : ''}"
              id="arrow-${g.key}" width="16" height="16" viewBox="0 0 16 16" fill="none"
@@ -650,13 +689,12 @@ function renderCompra() {
     html += `
     <div class="mb-3">
       <button class="w-full flex items-center justify-between px-3 py-2 rounded-xl
-                     bg-slate-800/60 border border-slate-700/50 mb-1.5
-                     hover:bg-slate-800 active:opacity-80 transition-colors"
+                     border mb-1.5 active:opacity-80 transition-colors ${C.grpHeader()} opacity-75"
               onclick="toggleGrupo('comprados')" style="user-select:none;">
         <div class="flex items-center gap-2">
           <span class="text-base">✅</span>
-          <span class="text-sm font-bold text-slate-400">Comprados</span>
-          <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-700 text-slate-500">${compradosSorted.length}</span>
+          <span class="text-sm font-bold ${C.textMuted()}">Comprados</span>
+          <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${C.grpCount()}">${compradosSorted.length}</span>
         </div>
         <svg class="flex-shrink-0 text-slate-600 transition-transform duration-300 ${collC ? '-rotate-90' : ''}"
              id="arrow-comprados" width="16" height="16" viewBox="0 0 16 16" fill="none"
@@ -680,9 +718,8 @@ function cardCompra(p, isComprado) {
   const dotC = DOT[p.urgencia] || DOT.verde;
   return `
   <div class="flex items-center gap-3 px-3 py-3
-              bg-slate-800 rounded-xl border border-slate-700
-              active:scale-[.98] transition-transform select-none
-              ${isComprado ? 'prod-comprado opacity-60' : ''}"
+              rounded-xl border active:scale-[.98] transition-transform select-none
+              ${C.card()} ${isComprado ? 'prod-comprado opacity-60' : ''}"
        data-pid="${esc(p.id)}">
 
     <!-- Dot urgencia (grande, clicable para cambiar) -->
@@ -694,8 +731,8 @@ function cardCompra(p, isComprado) {
     <!-- Sección + nombre -->
     <div class="flex-1 min-w-0 cursor-pointer" onclick="toggleProducto('${esc(p.id)}')">
       <div class="flex items-baseline gap-1.5 flex-wrap">
-        ${sec ? `<span class="text-xs font-bold text-slate-400 flex-shrink-0">${esc(sec.icono)} ${esc(sec.nombre)}</span>` : ''}
-        <span class="prod-nombre text-base font-bold text-slate-100 leading-tight">${esc(p.nombre)}</span>
+        ${sec ? `<span class="text-xs font-bold ${C.textMuted()} flex-shrink-0">${esc(sec.icono)} ${esc(sec.nombre)}</span>` : ''}
+        <span class="prod-nombre text-base font-bold ${C.textPrimary()} leading-tight">${esc(p.nombre)}</span>
       </div>
     </div>
 
@@ -704,9 +741,7 @@ function cardCompra(p, isComprado) {
                    ${isComprado ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-600 text-transparent'}"
             onclick="toggleProducto('${esc(p.id)}')"
             aria-label="Marcar comprado">
-      ${isComprado
-        ? '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 7 5.5 10.5 12 3"/></svg>'
-        : ''}
+      ${isComprado ? '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 7 5.5 10.5 12 3"/></svg>' : ''}
     </button>
   </div>`;
 }
@@ -749,21 +784,20 @@ function renderCategorias() {
     const pct = total > 0 ? Math.round(((total-pendientes)/total)*100) : 0;
     return `
     <button class="w-full flex items-center gap-3 px-4 py-3.5
-                   bg-slate-800 rounded-xl border border-slate-700
-                   text-left transition-all active:scale-[.98]
-                   hover:border-blue-700"
+                   rounded-xl border text-left transition-all active:scale-[.98]
+                   ${C.card()} ${C.cardHover()}"
             onclick="openSubScreen('${esc(sec.id)}')">
       <span class="text-2xl flex-shrink-0">${esc(sec.icono)}</span>
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2">
-          <p class="text-sm font-bold text-slate-100 truncate">${esc(sec.nombre)}</p>
+          <p class="text-sm font-bold ${C.textPrimary()} truncate">${esc(sec.nombre)}</p>
           ${urgentes > 0 ? `<span class="flex-shrink-0 text-xs font-bold px-1.5 py-0.5 rounded-full bg-red-700 text-white">${urgentes} 🔴</span>` : ''}
         </div>
         <div class="flex items-center gap-2 mt-1.5">
-          <div class="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+          <div class="flex-1 h-1.5 rounded-full overflow-hidden ${T('bg-slate-200','bg-slate-700')}">
             <div class="h-full rounded-full bg-blue-500 transition-all duration-500" style="width:${pct}%"></div>
           </div>
-          <span class="text-xs text-slate-500 flex-shrink-0">${pendientes} pend.</span>
+          <span class="text-xs ${C.textMuted()} flex-shrink-0">${pendientes} pend.</span>
         </div>
       </div>
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
@@ -805,7 +839,7 @@ function renderSubScreen(sectionId) {
 
   content.innerHTML = sorted.map(p => `
   <div class="flex items-center gap-3 px-3 py-3
-              bg-slate-800 rounded-xl border border-slate-700
+              rounded-xl border ${C.card()}
               ${p.estado==='comprado' ? 'opacity-50' : ''}">
     <!-- Dot -->
     <span class="w-4 h-4 rounded-full flex-shrink-0" style="background:${DOT[p.urgencia]||DOT.verde};"></span>
@@ -813,7 +847,7 @@ function renderSubScreen(sectionId) {
     <span class="text-xl flex-shrink-0">${esc(p.icono)}</span>
     <!-- Info -->
     <div class="flex-1 min-w-0">
-      <p class="text-sm font-bold text-slate-100 truncate ${p.estado==='comprado'?'line-through text-slate-500':''}">${esc(p.nombre)}</p>
+      <p class="text-sm font-bold ${C.textPrimary()} truncate ${p.estado==='comprado'?'line-through opacity-40':''}">${esc(p.nombre)}</p>
       <!-- Pill urgencia clicable (cicla) -->
       <button class="urg-pill ${URG_CLS[p.urgencia]||URG_CLS.verde} mt-1"
               onclick="cambiarUrgenciaSub('${esc(p.id)}')"
@@ -874,38 +908,38 @@ function renderPanel() {
   el.innerHTML = `
   <!-- Resumen rápido -->
   <div class="grid grid-cols-2 gap-2 mb-5">
-    ${miniCard('📦','Total prod.',total,'bg-slate-800 border-slate-700')}
-    ${miniCard('🔴','Urgentes',urgentes,'bg-red-950 border-red-800')}
-    ${miniCard('🟡','Normales',normales,'bg-amber-950 border-amber-800')}
-    ${miniCard('🟢','Sin prisa',sinPrisa,'bg-emerald-950 border-emerald-800')}
+    ${miniCard('📦','Total prod.',total,'bg-white border-slate-200','bg-slate-800 border-slate-700')}
+    ${miniCard('🔴','Urgentes',urgentes,'bg-red-50 border-red-200','bg-red-950 border-red-800')}
+    ${miniCard('🟡','Normales',normales,'bg-amber-50 border-amber-200','bg-amber-950 border-amber-800')}
+    ${miniCard('🟢','Sin prisa',sinPrisa,'bg-emerald-50 border-emerald-200','bg-emerald-950 border-emerald-800')}
   </div>
 
   <!-- Barra de progreso de compra -->
   ${total > 0 ? `
-  <div class="bg-slate-800 rounded-xl p-4 border border-slate-700 mb-5">
+  <div class="rounded-xl p-4 border mb-5 ${C.card()}">
     <div class="flex justify-between items-center mb-2">
-      <span class="text-xs font-bold text-slate-400 uppercase tracking-wide">Progreso de compra</span>
+      <span class="text-xs font-bold ${C.textMuted()} uppercase tracking-wide">Progreso de compra</span>
       <span class="text-sm font-bold text-blue-400">${Math.round(comprados/total*100)}%</span>
     </div>
     <div class="h-2.5 bg-slate-700 rounded-full overflow-hidden">
       <div class="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-700"
            style="width:${Math.round(comprados/total*100)}%"></div>
     </div>
-    <p class="text-xs text-slate-500 mt-1.5 text-right">${comprados} de ${total} comprados</p>
+    <p class="text-xs ${C.textMuted()} mt-1.5 text-right">${comprados} de ${total} comprados</p>
   </div>` : ''}
 
   <!-- Acción rápida global -->
   <div class="flex gap-2 mb-5">
     <button onclick="resetearCompra()"
       class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl
-             bg-slate-800 border border-slate-700 text-sm font-semibold text-slate-300
-             hover:border-blue-600 hover:text-blue-400 transition-colors">
+             border text-sm font-semibold transition-colors
+             ${C.card()} ${C.textPrimary()} hover:border-blue-400">
       🔄 Reiniciar compra
     </button>
     <button onclick="marcarTodoPendiente()"
       class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl
-             bg-slate-800 border border-slate-700 text-sm font-semibold text-slate-300
-             hover:border-emerald-600 hover:text-emerald-400 transition-colors">
+             border text-sm font-semibold transition-colors
+             ${C.card()} ${C.textPrimary()} hover:border-emerald-400">
       🟢 Todo sin prisa
     </button>
   </div>
@@ -918,19 +952,19 @@ function renderPanel() {
   ${seccionesConProds.length === 0 ? `
     <p class="text-sm text-slate-600 text-center py-8">Aún no hay productos.<br>Crea secciones y añade productos desde "Secciones".</p>
   ` : seccionesConProds.map(sec => `
-  <div class="mb-4 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+  <div class="mb-4 rounded-xl border overflow-hidden ${C.card()}">
     <!-- Cabecera sección -->
-    <div class="flex items-center gap-2 px-4 py-2.5 bg-slate-750 border-b border-slate-700">
+    <div class="flex items-center gap-2 px-4 py-2.5 border-b ${T('bg-slate-50 border-slate-200','bg-slate-750 border-slate-700')}">
       <span class="text-lg">${esc(sec.icono)}</span>
-      <span class="text-sm font-bold text-slate-200">${esc(sec.nombre)}</span>
-      <span class="ml-auto text-xs text-slate-500">${sec.productos.length} prod.</span>
+      <span class="text-sm font-bold ${C.textPrimary()}">${esc(sec.nombre)}</span>
+      <span class="ml-auto text-xs ${C.textMuted()}">${sec.productos.length} prod.</span>
     </div>
     <!-- Filas de productos -->
     ${sec.productos.map(p => `
-    <div class="flex items-center gap-3 px-3 py-2.5 border-b border-slate-700/50 last:border-0">
+    <div class="flex items-center gap-3 px-3 py-2.5 border-b last:border-0 ${T('border-slate-100','border-slate-700/50')}">
       <span class="w-3 h-3 rounded-full flex-shrink-0" style="background:${DOT[p.urgencia]||DOT.verde};"></span>
       <span class="text-base flex-shrink-0">${esc(p.icono)}</span>
-      <span class="flex-1 text-sm text-slate-200 truncate ${p.estado==='comprado'?'line-through text-slate-500':''}">${esc(p.nombre)}</span>
+      <span class="flex-1 text-sm ${C.textPrimary()} truncate ${p.estado==='comprado'?'line-through opacity-40':''}">${esc(p.nombre)}</span>
       <!-- Botones urgencia rápida inline -->
       <div class="flex gap-1 flex-shrink-0">
         ${['rojo','amarillo','verde'].map(u => `
@@ -945,11 +979,12 @@ function renderPanel() {
   </div>`).join('')}`;
 }
 
-function miniCard(icon, label, val, cls) {
+function miniCard(icon, label, val, lightCls, darkCls) {
+  const cls = State.darkMode ? darkCls : lightCls;
   return `<div class="flex flex-col items-center py-3.5 rounded-xl ${cls} border">
     <span class="text-2xl mb-0.5">${icon}</span>
-    <span class="text-2xl font-bold text-slate-100">${val}</span>
-    <span class="text-xs text-slate-400 font-semibold">${label}</span>
+    <span class="text-2xl font-bold ${C.textPrimary()}">${val}</span>
+    <span class="text-xs ${C.textSecond()} font-semibold">${label}</span>
   </div>`;
 }
 
@@ -990,16 +1025,16 @@ function renderGestion() {
 
     <!-- Toggle Modo -->
     <div class="flex items-center justify-between px-4 py-3.5
-                bg-slate-800 rounded-xl border border-slate-700">
+                rounded-xl border ${C.card()}">
       <div class="flex items-center gap-3">
-        <span class="text-xl">${State.darkMode ? '☀️' : '🌙'}</span>
-        <span class="text-sm font-semibold text-slate-200">
-          ${State.darkMode ? 'Modo claro activo' : 'Modo oscuro activo'}
+        <span class="text-xl">${State.darkMode ? '🌙' : '☀️'}</span>
+        <span class="text-sm font-semibold ${C.textPrimary()}">
+          ${State.darkMode ? 'Modo oscuro activo' : 'Modo claro activo'}
         </span>
       </div>
       <button onclick="toggleDarkMode()"
         class="relative w-12 h-6 rounded-full transition-colors duration-300
-               ${State.darkMode ? 'bg-blue-500' : 'bg-slate-600'}"
+               ${State.darkMode ? 'bg-indigo-600' : 'bg-slate-300'}"
         role="switch" aria-checked="${State.darkMode}">
         <span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300
                      ${State.darkMode ? 'translate-x-6' : 'translate-x-0'}"></span>
@@ -1019,18 +1054,18 @@ function renderGestion() {
     ${State.secciones.map(sec => {
       const n = State.productos.filter(p => p.sectionId === sec.id).length;
       return `
-      <div class="flex items-center gap-3 px-4 py-3 bg-slate-800 rounded-xl border border-slate-700">
+      <div class="flex items-center gap-3 px-4 py-3 rounded-xl border ${C.card()}">
         <span class="text-xl">${esc(sec.icono)}</span>
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-semibold text-slate-200 truncate">${esc(sec.nombre)}</p>
-          <p class="text-xs text-slate-500">${n} producto${n!==1?'s':''}</p>
+          <p class="text-sm font-semibold ${C.textPrimary()} truncate">${esc(sec.nombre)}</p>
+          <p class="text-xs ${C.textMuted()}">${n} producto${n!==1?'s':''}</p>
         </div>
         <button onclick="editarSeccion('${esc(sec.id)}')"
-          class="p-1.5 rounded-lg bg-slate-700 text-slate-400 hover:bg-blue-900 hover:text-blue-300 transition-colors">
+          class="p-1.5 rounded-lg ${C.btnSec()} transition-colors">
           <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2l2 2-7 7H3v-2l7-7z"/></svg>
         </button>
         <button onclick="eliminarSeccion('${esc(sec.id)}')"
-          class="p-1.5 rounded-lg bg-red-950 text-red-500 hover:bg-red-900/60 transition-colors">
+          class="p-1.5 rounded-lg ${C.btnDanger()} transition-colors">
           <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 4 12 4"/><path d="M5 4V2h4v2M5 6v5M9 6v5"/><rect x="3" y="4" width="8" height="8" rx="1"/></svg>
         </button>
       </div>`;
@@ -1040,8 +1075,8 @@ function renderGestion() {
     <div class="flex items-center justify-between px-1 pt-2">
       <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Iconos personalizados</p>
     </div>
-    <div class="bg-slate-800 rounded-xl border border-slate-700 px-4 py-4">
-      <p class="text-xs text-slate-400 mb-3">Añade emojis adicionales para usar como icono en secciones y productos.</p>
+    <div class="rounded-xl border px-4 py-4 ${C.card()}">
+      <p class="text-xs ${C.textMuted()} mb-3">Añade emojis adicionales para usar como icono en secciones y productos.</p>
       <div class="flex gap-2 mb-3">
         <input id="custom-icon-input" type="text" maxlength="4"
           placeholder="Pega un emoji 🍕"
@@ -1071,20 +1106,20 @@ function renderGestion() {
       <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Datos</p>
     </div>
     <button onclick="exportarDB()"
-      class="w-full flex items-center gap-3 px-4 py-3.5 bg-slate-800 rounded-xl border border-slate-700
-             text-left hover:border-blue-600 transition-colors">
+      class="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border
+             text-left hover:border-blue-400 transition-colors ${C.card()}">
       <span class="text-xl">📤</span>
       <div>
-        <p class="text-sm font-semibold text-slate-200">Exportar base de datos</p>
-        <p class="text-xs text-slate-500">Descarga un JSON con todo</p>
+        <p class="text-sm font-semibold ${C.textPrimary()}">Exportar base de datos</p>
+        <p class="text-xs ${C.textMuted()}">Descarga un JSON con todo</p>
       </div>
     </button>
-    <label class="w-full flex items-center gap-3 px-4 py-3.5 bg-slate-800 rounded-xl border border-slate-700
-                  text-left hover:border-blue-600 transition-colors cursor-pointer">
+    <label class="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border
+                  text-left hover:border-blue-400 transition-colors cursor-pointer ${C.card()}">
       <span class="text-xl">📥</span>
       <div class="flex-1">
-        <p class="text-sm font-semibold text-slate-200">Importar base de datos</p>
-        <p class="text-xs text-slate-500">Carga un JSON exportado</p>
+        <p class="text-sm font-semibold ${C.textPrimary()}">Importar base de datos</p>
+        <p class="text-xs ${C.textMuted()}">Carga un JSON exportado</p>
       </div>
       <input type="file" accept=".json" class="hidden" onchange="importarDB(event)"/>
     </label>
@@ -1197,9 +1232,12 @@ async function resetearTodo() {
 // ══════════════════════════════════════════════════════════════
 // 22. AVISO AL SALIR (beforeunload)
 // ══════════════════════════════════════════════════════════════
+// El diálogo solo aparece si el usuario ha interactuado con la página
 window.addEventListener('beforeunload', e => {
   e.preventDefault();
-  e.returnValue = '¿Seguro que quieres salir? Los datos están guardados localmente.';
+  // Chrome requiere que returnValue sea string no vacío
+  e.returnValue = 'Los cambios se guardan automáticamente, pero confirma que quieres salir.';
+  return e.returnValue;
 });
 
 // ══════════════════════════════════════════════════════════════

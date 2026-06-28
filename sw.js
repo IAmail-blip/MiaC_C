@@ -6,9 +6,9 @@
      • Resto           → Network-First con fallback a caché
    ============================================================ */
 
-const CACHE_CORE = 'lcd-core-v3';
-const CACHE_CDN  = 'lcd-cdn-v3';
-const CACHE_MISC = 'lcd-misc-v3';
+const CACHE_CORE = 'lcd-core-v4';
+const CACHE_CDN  = 'lcd-cdn-v4';
+const CACHE_MISC = 'lcd-misc-v4';
 
 const ALL_CACHES = [CACHE_CORE, CACHE_CDN, CACHE_MISC];
 
@@ -19,7 +19,9 @@ const CORE_URLS = [
   './app.js',
   './tailwind.css',
   './favicon.svg',
-  './manifest.json'
+  './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
 // CDN que queremos pre-warm (no bloquea install si fallan)
