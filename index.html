@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es" class="">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1e40af" id="meta-theme-color" />
+  <meta name="description" content="Tu lista de la compra inteligente, offline y siempre contigo." />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="La Compra" />
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <link rel="shortcut icon" href="./favicon.svg" />
+  <title>La Compra Diaria</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="./tailwind.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; overscroll-behavior: none; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      background: #0f172a;
+      color: #f1f5f9;
+      transition: background .25s, color .25s;
+    }
+    html.light body { background: #f1f5f9; color: #0f172a; }
+
+    /* Safe-area */
+    #bottom-nav { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+    /* Splash */
+    #splash {
+      position: fixed; inset: 0; z-index: 999;
+      background: linear-gradient(160deg, #1e3a8a 0%, #0f172a 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      transition: opacity .5s ease, transform .5s ease;
+    }
+    #splash.hidden { opacity:0; transform:scale(1.04); pointer-events:none; }
+    #splash-icon { font-size:5rem; animation: pulse 1.8s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+    #splash-bar { width:160px; height:4px; background:rgba(255,255,255,.15); border-radius:9999px; overflow:hidden; margin-top:2rem; }
+    #splash-bar-fill { height:100%; background:linear-gradient(90deg,#60a5fa,#3b82f6); border-radius:9999px; animation:loadBar 1.6s ease-in-out forwards; }
+    @keyframes loadBar { from{width:0%} to{width:100%} }
+
+    /* Screens */
+    .screen { display:none; }
+    .screen.active { display:block; animation: fadeIn .22s ease forwards; }
+
+    /* Sub-screen */
+    #sub-screen {
+      position:fixed; inset:0; z-index:50;
+      background: #0f172a;
+      transform:translateX(100%);
+      transition:transform .3s cubic-bezier(.4,0,.2,1);
+      display:flex; flex-direction:column;
+    }
+    html.light #sub-screen { background:#f1f5f9; }
+    #sub-screen.open { transform:translateX(0); }
+
+    /* Bottom sheet */
+    #sheet-overlay.open #sheet-backdrop { opacity:1; }
+    #sheet-box.open { transform:translateY(0) !important; }
+
+    /* Modal */
+    #modal-overlay {
+      position:fixed; inset:0; z-index:100;
+      background:rgba(0,0,0,.6); backdrop-filter:blur(4px);
+      display:none; align-items:center; justify-content:center; padding:1.5rem;
+    }
+    #modal-overlay.open { display:flex; }
+
+    /* Toast */
+    #toast {
+      position:fixed; bottom:5.5rem; left:50%; z-index:200;
+      transform:translateX(-50%) translateY(12px); opacity:0;
+      transition:all .3s ease; pointer-events:none; white-space:nowrap;
+    }
+    #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+    /* Nav */
+    .nav-btn { transition:color .15s, transform .15s; }
+    .nav-btn.active { color:#60a5fa; transform:translateY(-2px); }
+
+    /* FAB */
+    .fab {
+      position:fixed; right:1.25rem; z-index:40;
+      width:56px; height:56px; border-radius:50%;
+      background:linear-gradient(135deg,#3b82f6,#1d4ed8);
+      box-shadow:0 4px 20px rgba(59,130,246,.45);
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; border:none;
+      transition:transform .15s, box-shadow .15s;
+    }
+    .fab:active { transform:scale(.93); box-shadow:0 2px 8px rgba(59,130,246,.3); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width:3px; }
+    ::-webkit-scrollbar-thumb { background:#334155; border-radius:4px; }
+    html.light ::-webkit-scrollbar-thumb { background:#cbd5e1; }
+
+    * { -webkit-tap-highlight-color:transparent; }
+
+    /* Urgencia badge en compra */
+    .badge-rojo    { background:#dc2626; color:#fff; }
+    .badge-amarillo{ background:#d97706; color:#fff; }
+    .badge-verde   { background:#059669; color:#fff; }
+
+    /* Tarjeta compra comprada */
+    .prod-comprado .prod-nombre { text-decoration:line-through; opacity:.5; }
+    .prod-comprado .prod-sec    { opacity:.4; }
+
+    /* Grupo colapsable */
+    .grupo-content { overflow:hidden; transition:max-height .3s ease; }
+    .grupo-content.collapsed { max-height:0 !important; }
+
+    /* Header centrado */
+    #main-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; }
+    #header-title { text-align:center; }
+    #header-right  { display:flex; justify-content:flex-end; align-items:center; gap:.5rem; }
+
+    /* Input sin iconos del navegador */
+    input[type="text"]::-webkit-contacts-auto-fill-button,
+    input[type="text"]::-webkit-credentials-auto-fill-button { display:none !important; }
+    input { -webkit-text-security: none; }
+
+    /* Icon picker — grid sin renders lentos */
+    .icon-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+    .icon-btn {
+      aspect-ratio:1; border-radius:10px; border:2px solid transparent;
+      background:#1e293b; font-size:1.3rem;
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; transition:border-color .12s, background .12s;
+      user-select:none;
+    }
+    html.light .icon-btn { background:#e2e8f0; }
+    .icon-btn.selected { border-color:#3b82f6; background:#1e3a8a; }
+    html.light .icon-btn.selected { background:#dbeafe; }
+
+    /* Urgencia mini pill en sub-screen */
+    .urg-pill {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:2px 8px; border-radius:9999px;
+      font-size:.65rem; font-weight:700; cursor:pointer;
+      transition:opacity .12s;
+    }
+    .urg-pill:active { opacity:.7; }
+  </style>
+</head>
+<body class="flex flex-col h-full">
+
+<!-- SPLASH -->
+<div id="splash" role="status">
+  <div id="splash-icon">🛒</div>
+  <h1 class="mt-5 text-2xl font-bold text-white tracking-tight">La Compra Diaria</h1>
+  <p class="mt-1 text-sm text-blue-300 font-medium">Tu lista siempre contigo</p>
+  <div id="splash-bar"><div id="splash-bar-fill"></div></div>
+</div>
+
+<!-- APP SHELL -->
+<div id="app-shell" class="flex flex-col flex-1 overflow-hidden" style="display:none;">
+
+  <!-- Header -->
+  <header id="main-header"
+    class="px-4 pt-3 pb-2 bg-slate-900 border-b border-slate-800 sticky top-0 z-30
+           dark-header">
+    <div><!-- spacer izq --></div>
+    <h1 id="header-title" class="text-base font-bold text-slate-100 leading-tight">La Compra Diaria</h1>
+    <div id="header-right">
+      <span id="offline-badge"
+        class="hidden text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-900 text-amber-300">
+        Sin conexión
+      </span>
+    </div>
+  </header>
+  <style>
+    html.light #main-header { background:#fff; border-color:#e2e8f0; }
+    html.light #header-title { color:#0f172a; }
+  </style>
+
+  <!-- Main content -->
+  <main id="main-content" class="flex-1 overflow-y-auto pb-2">
+
+    <!-- Pantalla: Compra -->
+    <section id="screen-compra" class="screen active px-3 pt-4 pb-4">
+      <div id="compra-empty" class="hidden flex-col items-center justify-center py-24 text-center">
+        <div class="text-6xl mb-4">✅</div>
+        <p class="text-lg font-bold text-slate-400">Sin pendientes urgentes</p>
+        <p class="text-sm text-slate-500 mt-1">Todos los productos están en calma</p>
+      </div>
+      <div id="compra-list" class="space-y-3"></div>
+    </section>
+
+    <!-- Pantalla: Secciones -->
+    <section id="screen-categorias" class="screen px-3 pt-4 pb-4">
+      <div id="categorias-list" class="space-y-2"></div>
+    </section>
+
+    <!-- Pantalla: Panel (antes Resumen) -->
+    <section id="screen-resumen" class="screen px-3 pt-4 pb-4">
+      <div id="resumen-content"></div>
+    </section>
+
+    <!-- Pantalla: Gestión -->
+    <section id="screen-gestion" class="screen px-3 pt-4 pb-4">
+      <div id="gestion-content"></div>
+    </section>
+
+  </main>
+
+  <!-- FAB principal -->
+  <button id="fab-add" class="fab" style="bottom:5.5rem;display:none;" aria-label="Añadir">
+    <span class="text-white" style="font-size:1.75rem;line-height:1;">＋</span>
+  </button>
+
+  <!-- Bottom Nav -->
+  <nav id="bottom-nav"
+    class="flex items-center justify-around
+           bg-slate-900 border-t border-slate-800
+           px-2 pt-2 pb-1">
+    <style>html.light #bottom-nav{background:#fff;border-color:#e2e8f0;}</style>
+
+    <button class="nav-btn active flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-slate-400" data-tab="compra">
+      <span class="text-xl">🛒</span>
+      <span class="text-[10px] font-semibold">Compra</span>
+    </button>
+    <button class="nav-btn flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-slate-400" data-tab="categorias">
+      <span class="text-xl">📂</span>
+      <span class="text-[10px] font-semibold">Secciones</span>
+    </button>
+    <button class="nav-btn flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-slate-400" data-tab="resumen">
+      <span class="text-xl">🗂️</span>
+      <span class="text-[10px] font-semibold">Panel</span>
+    </button>
+    <button class="nav-btn flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-slate-400" data-tab="gestion">
+      <span class="text-xl">⚙️</span>
+      <span class="text-[10px] font-semibold">Gestión</span>
+    </button>
+  </nav>
+</div>
+
+<!-- SUB-SCREEN -->
+<div id="sub-screen">
+  <header class="flex items-center gap-3 px-4 pt-4 pb-3
+                 bg-slate-900 border-b border-slate-800 sticky top-0 z-10 flex-shrink-0">
+    <style>html.light #sub-screen header{background:#fff;border-color:#e2e8f0;}</style>
+    <button id="sub-back"
+      class="w-9 h-9 rounded-full flex items-center justify-center text-slate-400
+             hover:bg-slate-800 transition-colors flex-shrink-0">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 4l-6 6 6 6"/>
+      </svg>
+    </button>
+    <span id="sub-icon" class="text-2xl flex-shrink-0"></span>
+    <h2 id="sub-title" class="text-base font-bold text-slate-100 flex-1 truncate"></h2>
+    <style>html.light #sub-title{color:#0f172a;}</style>
+  </header>
+  <div id="sub-content" class="flex-1 overflow-y-auto px-3 pt-3 pb-28 space-y-2"></div>
+  <button id="fab-sub-add" class="fab" style="bottom:1.5rem;" aria-label="Añadir producto">
+    <span class="text-white" style="font-size:1.75rem;line-height:1;">＋</span>
+  </button>
+</div>
+
+<!-- BOTTOM SHEET -->
+<div id="sheet-overlay" style="display:none;"
+  class="fixed inset-0 z-[60] flex items-end justify-center"
+  role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div id="sheet-backdrop" class="absolute inset-0 bg-black/50 backdrop-blur-sm opacity-0 transition-opacity duration-300"></div>
+  <div id="sheet-box"
+    class="relative w-full max-w-lg bg-slate-900 rounded-t-2xl shadow-2xl
+           translate-y-full max-h-[92dvh] flex flex-col"
+    style="transition:transform .32s cubic-bezier(.4,0,.2,1); padding-bottom:env(safe-area-inset-bottom,0px);">
+    <style>html.light #sheet-box{background:#fff;}</style>
+    <div class="flex justify-center pt-3 pb-1 flex-shrink-0">
+      <div class="w-10 h-1 bg-slate-700 rounded-full"></div>
+    </div>
+    <div class="flex items-center justify-between px-5 py-3 flex-shrink-0 border-b border-slate-800">
+      <style>html.light #sheet-box .border-b{border-color:#e2e8f0;}</style>
+      <h3 id="sheet-title" class="text-base font-bold text-slate-100"></h3>
+      <style>html.light #sheet-title{color:#0f172a;}</style>
+      <button id="sheet-cancel-x"
+        class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-800 transition-colors">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <path d="M3 3l10 10M13 3L3 13"/>
+        </svg>
+      </button>
+    </div>
+    <div id="sheet-body" class="flex-1 overflow-y-auto px-5 py-3"></div>
+    <div class="flex gap-3 px-5 py-4 flex-shrink-0 border-t border-slate-800">
+      <button id="sheet-cancel"
+        class="flex-1 py-3 rounded-xl text-sm font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors">
+        Cancelar
+      </button>
+      <button id="sheet-submit"
+        class="flex-1 py-3 rounded-xl text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition-all">
+        Guardar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMACIÓN -->
+<div id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div id="modal-box"
+    class="w-full max-w-sm bg-slate-800 rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+    <style>html.light #modal-box{background:#fff;}</style>
+    <div class="px-5 pt-5 pb-4">
+      <h3 id="modal-title" class="text-base font-bold text-slate-100 mb-1"></h3>
+      <style>html.light #modal-title{color:#0f172a;}</style>
+      <div id="modal-body" class="text-sm text-slate-400"></div>
+      <style>html.light #modal-body{color:#475569;}</style>
+    </div>
+    <div id="modal-actions" class="flex gap-2 px-5 pb-5"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"
+  class="px-4 py-2 rounded-full bg-slate-100 text-slate-900 text-sm font-semibold shadow-xl"
+  role="status" aria-live="polite"></div>
+
+<script src="./app.js"></script>
+</body>
+</html>
